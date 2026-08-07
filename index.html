@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timberline CRM — POC</title>
+<style>
+  :root{
+    --surface-1:#fcfcfb; --page:#f9f9f7;
+    --ink-1:#0b0b0b; --ink-2:#52514e; --ink-3:#898781;
+    --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
+    --blue:#2a78d6; --blue-deep:#1c5cab; --blue-soft:#cde2fb;
+    --good:#0ca30c; --good-text:#006300; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+    --nav-bg:#16283c; --nav-ink:#c9d6e4; --nav-active:#213a56;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--page);color:var(--ink-1);font-size:14px;height:100vh;display:flex;overflow:hidden}
+  button{font:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;color:var(--ink-1)}
+
+  /* ---------- sidebar ---------- */
+  #sidebar{width:216px;min-width:216px;background:var(--nav-bg);color:var(--nav-ink);display:flex;flex-direction:column;padding:18px 12px}
+  .logo{display:flex;align-items:center;gap:10px;padding:4px 10px 18px;color:#fff}
+  .logo svg{flex:none}
+  .logo .name{font-weight:700;font-size:16px;letter-spacing:.2px}
+  .logo .sub{font-size:11px;color:#7d93ab}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:var(--nav-ink);background:none;border:none;width:100%;text-align:left;font-size:13.5px;margin-bottom:2px}
+  .nav-item:hover{background:rgba(255,255,255,.06)}
+  .nav-item.active{background:var(--nav-active);color:#fff;font-weight:600}
+  .nav-item .ico{width:18px;text-align:center;font-size:15px}
+  .nav-item .count{margin-left:auto;background:rgba(255,255,255,.12);border-radius:99px;font-size:11px;padding:1px 8px}
+  #sidebar .foot{margin-top:auto;font-size:11px;color:#5f7690;padding:10px 12px;line-height:1.5}
+
+  /* ---------- layout ---------- */
+  #shell{flex:1;display:flex;flex-direction:column;min-width:0}
+  #topbar{height:56px;background:var(--surface-1);border-bottom:1px solid var(--grid);display:flex;align-items:center;gap:14px;padding:0 22px}
+  #topbar .crumb{font-weight:700;font-size:15px}
+  #search{margin-left:auto;position:relative}
+  #search input{width:280px;padding:7px 12px 7px 32px;border:1px solid var(--grid);border-radius:8px;background:var(--page);outline:none}
+  #search input:focus{border-color:var(--blue)}
+  #search .mag{position:absolute;left:10px;top:7px;color:var(--ink-3)}
+  #search-results{position:absolute;top:40px;right:0;width:340px;background:#fff;border:1px solid var(--grid);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.12);z-index:60;max-height:320px;overflow:auto;display:none}
+  #search-results .sr{padding:9px 12px;border-bottom:1px solid var(--grid);cursor:pointer;display:flex;gap:8px;align-items:baseline}
+  #search-results .sr:hover{background:var(--page)}
+  #search-results .sr .t{font-size:11px;color:var(--ink-3);min-width:62px}
+  #main{flex:1;overflow:auto;padding:22px}
+  .page-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .page-head h1{font-size:19px}
+  .page-head .sub{color:var(--ink-2);font-size:13px}
+  .page-head .actions{margin-left:auto;display:flex;gap:8px}
+
+  /* ---------- generic ui ---------- */
+  .card{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+  .card h3{font-size:13px;color:var(--ink-2);font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px}
+  .btn{border:1px solid var(--grid);background:var(--surface-1);border-radius:8px;padding:7px 14px;font-weight:600;font-size:13px;color:var(--ink-1)}
+  .btn:hover{background:var(--page)}
+  .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+  .btn.primary:hover{background:var(--blue-deep)}
+  .btn.small{padding:3px 9px;font-size:12px;font-weight:500}
+  .btn.ghost{border-color:transparent;background:none;color:var(--blue)}
+  table.grid{width:100%;border-collapse:collapse;font-size:13.5px}
+  table.grid th{color:var(--ink-3);font-weight:600;text-align:left;font-size:12px;padding:8px 10px;border-bottom:1px solid var(--grid);white-space:nowrap}
+  table.grid td{padding:9px 10px;border-bottom:1px solid var(--grid);vertical-align:middle}
+  table.grid tr:last-child td{border-bottom:none}
+  table.grid tr.click:hover td{background:var(--page);cursor:pointer}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-flex;align-items:center;gap:5px;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+  .pill.gray{background:#efeeea;color:var(--ink-2)}
+  .pill.blue{background:var(--blue-soft);color:var(--blue-deep)}
+  .pill.green{background:#dcf3dc;color:var(--good-text)}
+  .pill.amber{background:#fdeeca;color:#8a5b00}
+  .pill.orange{background:#fde4d8;color:#9a3d14}
+  .pill.red{background:#fadcdc;color:#8f1f1f}
+  .muted{color:var(--ink-3)}
+  .sm{font-size:12px}
+  a.rec{color:var(--blue);text-decoration:none;font-weight:600;cursor:pointer}
+  a.rec:hover{text-decoration:underline}
+
+  /* ---------- dashboard ---------- */
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+  .tile{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+  .tile .lbl{font-size:12px;color:var(--ink-2);font-weight:600}
+  .tile .val{font-size:26px;font-weight:700;margin-top:4px}
+  .tile .delta{font-size:12px;margin-top:2px;color:var(--ink-3)}
+  .tile .delta.up{color:var(--good-text)}
+  .tile .delta.warn{color:#8a5b00}
+  .dash-grid{display:grid;grid-template-columns:1.2fr .9fr .9fr;gap:14px;align-items:start}
+  .list-row{display:flex;gap:10px;padding:8px 2px;border-bottom:1px solid var(--grid);align-items:center}
+  .list-row:last-child{border-bottom:none}
+  .list-row .when{min-width:64px;color:var(--ink-3);font-size:12px;font-variant-numeric:tabular-nums}
+  .task-row{display:flex;gap:9px;padding:7px 2px;border-bottom:1px solid var(--grid);align-items:center}
+  .task-row:last-child{border-bottom:none}
+  .task-row input{accent-color:var(--blue);width:15px;height:15px}
+  .task-row.done .t{text-decoration:line-through;color:var(--ink-3)}
+  .task-row .due{margin-left:auto;font-size:12px;color:var(--ink-3);white-space:nowrap}
+  .task-row .due.over{color:var(--critical);font-weight:600}
+
+  /* chart */
+  .chart-wrap{position:relative}
+  .chart-tip{position:absolute;pointer-events:none;background:#fff;border:1px solid var(--grid);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:7px 10px;font-size:12px;display:none;z-index:30;white-space:nowrap}
+
+  /* ---------- pipeline board ---------- */
+  .board{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start}
+  .lane{background:#f1f0ec;border-radius:var(--radius);padding:10px}
+  .lane h4{font-size:12.5px;color:var(--ink-2);display:flex;justify-content:space-between;margin:2px 4px 10px}
+  .lead-card{background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px}
+  .lead-card .nm{font-weight:600}
+  .lead-card .co{color:var(--ink-2);font-size:12.5px}
+  .lead-card .meta{display:flex;justify-content:space-between;margin-top:7px;align-items:center}
+  .lead-card select{font-size:11.5px;border:1px solid var(--grid);border-radius:6px;padding:2px 4px;background:var(--page);color:var(--ink-2)}
+
+  /* ---------- account detail ---------- */
+  .detail-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:14px;align-items:start}
+  .kv{display:grid;grid-template-columns:110px 1fr;row-gap:7px;font-size:13.5px}
+  .kv .k{color:var(--ink-3)}
+  .timeline .ev{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--grid);font-size:13px}
+  .timeline .ev:last-child{border-bottom:none}
+  .timeline .dot{width:8px;height:8px;border-radius:99px;margin-top:5px;flex:none}
+
+  /* ---------- schedule ---------- */
+  .week{display:grid;grid-template-columns:52px repeat(5,1fr);border:1px solid var(--grid);border-radius:var(--radius);overflow:hidden;background:var(--surface-1)}
+  .week .head{background:var(--page);border-bottom:1px solid var(--grid);padding:8px 4px;text-align:center;font-size:12.5px;font-weight:600;border-left:1px solid var(--grid)}
+  .week .head .d{color:var(--ink-3);font-weight:500;font-size:11px}
+  .week .head.today{color:var(--blue-deep)}
+  .hour-lbl{font-size:11px;color:var(--ink-3);text-align:right;padding:2px 6px 0 0;border-top:1px solid var(--grid);height:48px}
+  .day-col{position:relative;border-left:1px solid var(--grid)}
+  .slot{height:48px;border-top:1px solid var(--grid)}
+  .slot:hover{background:#f4f8fd;cursor:pointer}
+  .appt{position:absolute;left:3px;right:3px;background:var(--blue-soft);border-left:3px solid var(--blue);border-radius:6px;padding:3px 7px;font-size:11.5px;overflow:hidden;cursor:pointer}
+  .appt .t{font-weight:700;color:var(--blue-deep)}
+  .appt.site{background:#dcf3dc;border-left-color:var(--good)}
+  .appt.site .t{color:var(--good-text)}
+  .appt.internal{background:#efeeea;border-left-color:var(--ink-3)}
+  .appt.internal .t{color:var(--ink-2)}
+
+  /* ---------- modal & toast ---------- */
+  #overlay{position:fixed;inset:0;background:rgba(15,23,32,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding-top:8vh}
+  #modal{background:#fff;border-radius:14px;width:520px;max-width:94vw;max-height:82vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.25)}
+  #modal .m-head{padding:16px 20px;border-bottom:1px solid var(--grid);font-weight:700;font-size:15px;display:flex;justify-content:space-between;align-items:center}
+  #modal .m-body{padding:18px 20px}
+  #modal .m-foot{padding:14px 20px;border-top:1px solid var(--grid);display:flex;justify-content:flex-end;gap:8px}
+  .f-row{margin-bottom:12px}
+  .f-row label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:4px}
+  .f-row input,.f-row select,.f-row textarea{width:100%;padding:8px 10px;border:1px solid var(--grid);border-radius:8px;background:var(--surface-1);outline:none}
+  .f-row input:focus,.f-row select:focus,.f-row textarea:focus{border-color:var(--blue)}
+  .f-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .x{background:none;border:none;font-size:18px;color:var(--ink-3);cursor:pointer}
+  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#16283c;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;display:none;z-index:200;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+  .warn-line{background:#fdeeca;border:1px solid #f3d68a;color:#6b4a00;border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:10px;display:flex;gap:7px;align-items:center}
+
+  /* quote builder */
+  .qline{display:grid;grid-template-columns:1fr 64px 90px 30px;gap:8px;margin-bottom:8px;align-items:center}
+  .qtotal{display:flex;justify-content:flex-end;gap:24px;font-size:13.5px;padding-top:10px;border-top:1px solid var(--grid)}
+  .qtotal .big{font-size:17px;font-weight:700}
+
+  .two-col{display:grid;grid-template-columns:1fr 1.4fr;gap:14px;align-items:start}
+  .camp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .empty{color:var(--ink-3);text-align:center;padding:26px 0;font-size:13px}
+</style>
+</head>
+<body>
+<nav id="sidebar">
+  <div class="logo">
+    <svg width="30" height="30" viewBox="0 0 30 30"><path d="M2 24 L11 7 L16 15 L20 9 L28 24 Z" fill="#4f8fd9"/><path d="M11 7 L14 12.5 L11 14.5 L8.6 11.6 Z" fill="#fff" opacity=".85"/><path d="M20 9 L22.4 13.4 L20 15 L17.8 12.4 Z" fill="#fff" opacity=".85"/></svg>
+    <div><div class="name">Timberline</div><div class="sub">mini CRM · POC</div></div>
+  </div>
+  <button class="nav-item" data-view="dashboard"><span class="ico">⌂</span>Today</button>
+  <button class="nav-item" data-view="calls"><span class="ico">☏</span>Incoming Calls<span class="count" id="c-calls"></span></button>
+  <button class="nav-item" data-view="leads"><span class="ico">◧</span>Pipeline<span class="count" id="c-leads"></span></button>
+  <button class="nav-item" data-view="accounts"><span class="ico">▦</span>Accounts</button>
+  <button class="nav-item" data-view="marketing"><span class="ico">◎</span>Marketing</button>
+  <button class="nav-item" data-view="pricing"><span class="ico">⬡</span>Pricing &amp; Quotes</button>
+  <button class="nav-item" data-view="contracts"><span class="ico">✎</span>Contracts<span class="count" id="c-contracts"></span></button>
+  <button class="nav-item" data-view="schedule"><span class="ico">▤</span>Schedule</button>
+  <div class="foot">Demo data · fictional Colorado mid-market companies. All in-memory — refresh resets.</div>
+</nav>
+
+<div id="shell">
+  <header id="topbar">
+    <span class="crumb" id="crumb">Today</span>
+    <div id="search">
+      <span class="mag">⌕</span>
+      <input id="search-in" placeholder="Search accounts, contacts, leads…" autocomplete="off">
+      <div id="search-results"></div>
+    </div>
+    <button class="btn primary" id="quick-log">+ Log call</button>
+  </header>
+  <main id="main"></main>
+</div>
+
+<div id="overlay"><div id="modal"></div></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   Timberline CRM — single-file POC. In-memory demo data only.
+   ============================================================ */
+
+// ---------- date helpers (demo data is generated relative to "today") ----------
+const DAY = 86400000;
+const now = new Date();
+const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const addD = (d, n) => new Date(d.getTime() + n*DAY);
+const fmtD = s => { const d = new Date(s+'T00:00:00'); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+const fmtDY = s => { const d = new Date(s+'T00:00:00'); return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); };
+const money = n => '$' + Math.round(n).toLocaleString('en-US');
+const daysUntil = s => Math.round((new Date(s+'T00:00:00') - today)/DAY);
+// Monday of the week containing d
+const monOf = d => { const x = new Date(d); const dow = (x.getDay()+6)%7; return addD(x, -dow); };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// weekday helper: n-th business day from today (skips Sat/Sun), n can be negative
+function bday(n){ let d = new Date(today), step = n<0?-1:1, left = Math.abs(n);
+  while(left>0){ d = addD(d,step); if(d.getDay()!==0 && d.getDay()!==6) left--; } return d; }
+
+// ---------- demo data ----------
+let seq = 1000;
+const id = p => p + (seq++);
+
+const S = {
+  owners: ['Ben L.', 'Dana K.', 'Marcus T.'],
+  accounts: [
+    {id:'a1', name:'Front Range Logistics', industry:'Transportation', city:'Denver', employees:240, phone:'(303) 555-0148', owner:'Ben L.', notes:'Runs 3 distribution hubs along I-25. Growing into NM.'},
+    {id:'a2', name:'Alpine Peak Software', industry:'Technology', city:'Boulder', employees:95, phone:'(720) 555-0163', owner:'Dana K.', notes:'B2B SaaS. Interested in annual bundle.'},
+    {id:'a3', name:'High Plains Energy Co-op', industry:'Energy', city:'Greeley', employees:310, phone:'(970) 555-0117', owner:'Ben L.', notes:'Co-op board meets quarterly — decisions are slow.'},
+    {id:'a4', name:'Silverthorne Medical Group', industry:'Healthcare', city:'Colorado Springs', employees:180, phone:'(719) 555-0142', owner:'Marcus T.', notes:'Compliance-sensitive. Needs BAA language in contracts.'},
+    {id:'a5', name:'Arapahoe Steelworks', industry:'Manufacturing', city:'Pueblo', employees:420, phone:'(719) 555-0189', owner:'Dana K.', notes:'Legacy ERP; wants simple tools for the sales floor.'},
+    {id:'a6', name:'Cache Creek Foods', industry:'Food & Beverage', city:'Fort Collins', employees:130, phone:'(970) 555-0175', owner:'Marcus T.', notes:'Seasonal demand peaks Sep–Dec.'}
+  ],
+  contacts: [
+    {id:'p1', accountId:'a1', name:'Maria Sandoval', title:'VP Operations', phone:'(303) 555-0221', email:'maria.s@frlogistics.example'},
+    {id:'p2', accountId:'a1', name:'Tom Whitfield', title:'IT Director', phone:'(303) 555-0234', email:'tom.w@frlogistics.example'},
+    {id:'p3', accountId:'a2', name:'Priya Nair', title:'COO', phone:'(720) 555-0311', email:'priya@alpinepeak.example'},
+    {id:'p4', accountId:'a3', name:'Gene Hollis', title:'GM', phone:'(970) 555-0402', email:'ghollis@hpec.example'},
+    {id:'p5', accountId:'a4', name:'Dr. Alice Chen', title:'Practice Admin', phone:'(719) 555-0501', email:'achen@silverthornemed.example'},
+    {id:'p6', accountId:'a5', name:'Rick Duran', title:'Sales Director', phone:'(719) 555-0602', email:'rduran@arapahoesteel.example'},
+    {id:'p7', accountId:'a6', name:'Jenny Park', title:'Owner', phone:'(970) 555-0701', email:'jenny@cachecreekfoods.example'}
+  ],
+  campaigns: [
+    {id:'m1', name:'Denver Chamber Expo', channel:'Event', budget:8500, status:'Active', start:iso(addD(today,-20)), end:iso(addD(today,25))},
+    {id:'m2', name:'Q3 Email — Ops Leaders', channel:'Email', budget:1200, status:'Active', start:iso(addD(today,-10)), end:iso(addD(today,20))},
+    {id:'m3', name:'Referral Program', channel:'Referral', budget:3000, status:'Active', start:iso(addD(today,-60)), end:iso(addD(today,120))},
+    {id:'m4', name:'Spring Webinar Series', channel:'Webinar', budget:2400, status:'Completed', start:iso(addD(today,-120)), end:iso(addD(today,-45))}
+  ],
+  leads: [
+    {id:'l1', name:'Maria Sandoval', company:'Front Range Logistics', accountId:'a1', source:'m1', stage:'Quote Sent', value:42000, owner:'Ben L.', created:iso(addD(today,-18))},
+    {id:'l2', name:'Priya Nair', company:'Alpine Peak Software', accountId:'a2', source:'m3', stage:'Qualified', value:28500, owner:'Dana K.', created:iso(addD(today,-12))},
+    {id:'l3', name:'Gene Hollis', company:'High Plains Energy Co-op', accountId:'a3', source:'m2', stage:'New', value:36000, owner:'Ben L.', created:iso(addD(today,-3))},
+    {id:'l4', name:'Dr. Alice Chen', company:'Silverthorne Medical Group', accountId:'a4', source:'m4', stage:'Won', value:24000, owner:'Marcus T.', created:iso(addD(today,-70))},
+    {id:'l5', name:'Rick Duran', company:'Arapahoe Steelworks', accountId:'a5', source:'m1', stage:'Qualified', value:51000, owner:'Dana K.', created:iso(addD(today,-8))},
+    {id:'l6', name:'Sam Ortega', company:'Mesa Verde Outfitters', accountId:null, source:'m2', stage:'New', value:12000, owner:'Marcus T.', created:iso(addD(today,-1))},
+    {id:'l7', name:'Jenny Park', company:'Cache Creek Foods', accountId:'a6', source:'m3', stage:'Lost', value:15000, owner:'Marcus T.', created:iso(addD(today,-40))}
+  ],
+  calls: [
+    {id:'c1', when: iso(today), time:'09:12', contact:'Maria Sandoval', accountId:'a1', type:'Sales', reason:'Questions on quote Q-1042 pricing tiers', outcome:'Follow-up booked', followUp:iso(bday(1))},
+    {id:'c2', when: iso(today), time:'08:47', contact:'Gene Hollis', accountId:'a3', type:'Sales', reason:'Saw Q3 email — wants overview demo', outcome:'Demo scheduled', followUp:iso(bday(2))},
+    {id:'c3', when: iso(addD(today,-1)), time:'15:30', contact:'Dr. Alice Chen', accountId:'a4', type:'Support', reason:'Onboarding question — user seats', outcome:'Resolved on call', followUp:null},
+    {id:'c4', when: iso(addD(today,-1)), time:'11:05', contact:'Rick Duran', accountId:'a5', type:'Sales', reason:'Requested references from manufacturing clients', outcome:'Sent references', followUp:iso(bday(3))},
+    {id:'c5', when: iso(addD(today,-2)), time:'10:22', contact:'Unknown caller', accountId:null, type:'Billing', reason:'Invoice copy request', outcome:'Emailed invoice', followUp:null},
+    {id:'c6', when: iso(addD(today,-2)), time:'14:48', contact:'Jenny Park', accountId:'a6', type:'Sales', reason:'Price check vs. competitor', outcome:'No decision — nurture', followUp:null}
+  ],
+  priceBook: [
+    {id:'pr1', sku:'CORE-10', name:'Core platform — up to 10 users', unit:'/yr', price:6000},
+    {id:'pr2', sku:'CORE-50', name:'Core platform — up to 50 users', unit:'/yr', price:18000},
+    {id:'pr3', sku:'MOD-CALL', name:'Call desk module', unit:'/yr', price:4800},
+    {id:'pr4', sku:'MOD-SCHED', name:'Scheduling module', unit:'/yr', price:3600},
+    {id:'pr5', sku:'ONB-STD', name:'Standard onboarding', unit:'one-time', price:2500},
+    {id:'pr6', sku:'ONB-PRM', name:'Premium onboarding + training', unit:'one-time', price:7500},
+    {id:'pr7', sku:'SUP-PRI', name:'Priority support', unit:'/yr', price:3000}
+  ],
+  quotes: [
+    {id:'Q-1042', accountId:'a1', items:[{p:'pr2',qty:1},{p:'pr3',qty:1},{p:'pr6',qty:1}], discountPct:8, status:'Sent', created:iso(addD(today,-6))},
+    {id:'Q-1041', accountId:'a5', items:[{p:'pr2',qty:2},{p:'pr4',qty:1}], discountPct:5, status:'Draft', created:iso(addD(today,-2))},
+    {id:'Q-1039', accountId:'a4', items:[{p:'pr1',qty:1},{p:'pr7',qty:1},{p:'pr5',qty:1}], discountPct:0, status:'Accepted', created:iso(addD(today,-48))}
+  ],
+  contracts: [
+    {id:'CT-208', accountId:'a4', quoteId:'Q-1039', name:'Silverthorne — Core + Support', value:11500, status:'Active', start:iso(addD(today,-40)), end:iso(addD(today,325))},
+    {id:'CT-204', accountId:'a3', quoteId:null, name:'High Plains — Pilot agreement', value:9000, status:'Active', start:iso(addD(today,-300)), end:iso(addD(today,42))},
+    {id:'CT-201', accountId:'a6', quoteId:null, name:'Cache Creek — Seasonal license', value:7200, status:'Expired', start:iso(addD(today,-420)), end:iso(addD(today,-55))},
+    {id:'CT-209', accountId:'a1', quoteId:'Q-1042', name:'Front Range — Platform rollout', value:26300, status:'Sent', start:iso(addD(today,10)), end:iso(addD(today,375))}
+  ],
+  tasks: [
+    {id:'t1', title:'Call Maria back re: tier pricing', due:iso(bday(1)), owner:'Ben L.', priority:'High', done:false, accountId:'a1'},
+    {id:'t2', title:'Prep demo environment for High Plains', due:iso(today), owner:'Ben L.', priority:'High', done:false, accountId:'a3'},
+    {id:'t3', title:'Send updated BAA language to Silverthorne', due:iso(addD(today,-1)), owner:'Marcus T.', priority:'Medium', done:false, accountId:'a4'},
+    {id:'t4', title:'Draft renewal terms — High Plains (expires soon)', due:iso(bday(4)), owner:'Ben L.', priority:'Medium', done:false, accountId:'a3'},
+    {id:'t5', title:'Follow up on Arapahoe references', due:iso(bday(3)), owner:'Dana K.', priority:'Low', done:false, accountId:'a5'},
+    {id:'t6', title:'Update price book for Q4', due:iso(addD(today,-2)), owner:'Dana K.', priority:'Low', done:true, accountId:null}
+  ],
+  appts: (m => [
+    {id:'ap4', title:'Team pipeline review', accountId:null, day:iso(m), start:9, dur:1, type:'internal', owner:'Ben L.'},
+    {id:'ap1', title:'Demo — High Plains Energy', accountId:'a3', day:iso(addD(m,2)), start:10, dur:1, type:'demo', owner:'Ben L.'},
+    {id:'ap2', title:'Quote review — Front Range', accountId:'a1', day:iso(addD(m,4)), start:14, dur:1, type:'demo', owner:'Ben L.'},
+    {id:'ap3', title:'Site visit — Arapahoe Steelworks', accountId:'a5', day:iso(addD(m,8)), start:9, dur:2, type:'site', owner:'Dana K.'},
+    {id:'ap5', title:'Onboarding check-in — Silverthorne', accountId:'a4', day:iso(addD(m,10)), start:11, dur:1, type:'demo', owner:'Marcus T.'}
+  ])(monOf(today))
+};
+
+const STAGES = ['New','Qualified','Quote Sent','Won','Lost'];
+const acct = aid => S.accounts.find(a => a.id === aid) || null;
+const acctName = aid => (acct(aid)||{}).name || '—';
+const campName = mid => (S.campaigns.find(m=>m.id===mid)||{}).name || '—';
+const quoteTotal = q => { const sub = q.items.reduce((s,it)=>{ const p=S.priceBook.find(x=>x.id===it.p); return s + (p?p.price*it.qty:0); },0); return sub * (1 - (q.discountPct||0)/100); };
+</script>
+<script>
+/* ================= shell: routing, toast, modal, search ================= */
+const $ = sel => document.querySelector(sel);
+const main = $('#main');
+let view = 'dashboard', viewArg = null;
+
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(toast._h); toast._h=setTimeout(()=>t.style.display='none', 2600); }
+
+function openModal(html){ $('#modal').innerHTML = html; $('#overlay').style.display='flex'; }
+function closeModal(){ $('#overlay').style.display='none'; }
+$('#overlay').addEventListener('click', e => { if(e.target.id==='overlay') closeModal(); });
+
+function go(v, arg){ view = v; viewArg = arg ?? null; render(); }
+
+document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', () => go(b.dataset.view)));
+
+function render(){
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  const titles = {dashboard:'Today', calls:'Incoming Calls', leads:'Pipeline', accounts:'Accounts',
+    marketing:'Marketing', pricing:'Pricing & Quotes', contracts:'Contracts', schedule:'Schedule'};
+  $('#crumb').textContent = titles[view] || 'Timberline';
+  const openLeads = S.leads.filter(l => !['Won','Lost'].includes(l.stage)).length;
+  $('#c-calls').textContent = S.calls.filter(c => c.when === iso(today)).length;
+  $('#c-leads').textContent = openLeads;
+  $('#c-contracts').textContent = S.contracts.filter(k => k.status==='Active' && daysUntil(k.end) <= 60 && daysUntil(k.end) >= 0).length || '';
+  ({dashboard:vDashboard, calls:vCalls, leads:vLeads, accounts:vAccounts, marketing:vMarketing,
+    pricing:vPricing, contracts:vContracts, schedule:vSchedule}[view] || vDashboard)();
+  main.scrollTop = 0;
+}
+
+/* ---------- global search ---------- */
+const sIn = $('#search-in'), sRes = $('#search-results');
+sIn.addEventListener('input', () => {
+  const q = sIn.value.trim().toLowerCase();
+  if(q.length < 2){ sRes.style.display='none'; return; }
+  const hits = [];
+  S.accounts.forEach(a => { if((a.name+' '+a.city+' '+a.industry).toLowerCase().includes(q)) hits.push({t:'Account', label:a.name, sub:a.city, go:()=>go('accounts', a.id)}); });
+  S.contacts.forEach(p => { if((p.name+' '+p.title).toLowerCase().includes(q)) hits.push({t:'Contact', label:p.name, sub:acctName(p.accountId), go:()=>go('accounts', p.accountId)}); });
+  S.leads.forEach(l => { if((l.name+' '+l.company).toLowerCase().includes(q)) hits.push({t:'Lead', label:l.name, sub:l.company+' · '+l.stage, go:()=>go('leads')}); });
+  S.contracts.forEach(k => { if((k.name+' '+k.id).toLowerCase().includes(q)) hits.push({t:'Contract', label:k.id, sub:k.name, go:()=>go('contracts')}); });
+  S.quotes.forEach(qq => { if(qq.id.toLowerCase().includes(q)) hits.push({t:'Quote', label:qq.id, sub:acctName(qq.accountId), go:()=>go('pricing')}); });
+  sRes.innerHTML = hits.length
+    ? hits.slice(0,8).map((h,i)=>`<div class="sr" data-i="${i}"><span class="t">${h.t}</span><span><b>${esc(h.label)}</b> <span class="muted sm">${esc(h.sub)}</span></span></div>`).join('')
+    : '<div class="sr muted">No matches</div>';
+  sRes.style.display='block';
+  sRes.querySelectorAll('.sr[data-i]').forEach(el => el.addEventListener('click', () => { hits[+el.dataset.i].go(); sRes.style.display='none'; sIn.value=''; }));
+});
+document.addEventListener('click', e => { if(!$('#search').contains(e.target)) sRes.style.display='none'; });
+
+$('#quick-log').addEventListener('click', () => logCallModal());
+
+/* ================= dashboard ================= */
+function vDashboard(){
+  const todayIso = iso(today);
+  const callsToday = S.calls.filter(c => c.when === todayIso);
+  const openTasks = S.tasks.filter(t => !t.done);
+  const overdue = openTasks.filter(t => daysUntil(t.due) < 0);
+  const pipeline = S.leads.filter(l => !['Won','Lost'].includes(l.stage)).reduce((s,l)=>s+l.value,0);
+  const expiring = S.contracts.filter(k => k.status==='Active' && daysUntil(k.end) <= 60 && daysUntil(k.end) >= 0);
+  const apToday = S.appts.filter(a => a.day === todayIso).sort((a,b)=>a.start-b.start);
+  const dow = today.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric'});
+
+  main.innerHTML = `
+  <div class="page-head"><h1>Good morning, Ben</h1><span class="sub">${dow}</span></div>
+  <div class="tiles">
+    <div class="tile"><div class="lbl">Calls today</div><div class="val">${callsToday.length}</div><div class="delta">${callsToday.filter(c=>c.followUp).length} need follow-up</div></div>
+    <div class="tile"><div class="lbl">Open pipeline</div><div class="val">${money(pipeline)}</div><div class="delta up">↑ ${S.leads.filter(l=>l.stage==='Quote Sent').length} quote${S.leads.filter(l=>l.stage==='Quote Sent').length===1?'':'s'} out</div></div>
+    <div class="tile"><div class="lbl">Open tasks</div><div class="val">${openTasks.length}</div><div class="delta ${overdue.length?'warn':''}">${overdue.length ? '⚠ '+overdue.length+' overdue' : 'nothing overdue'}</div></div>
+    <div class="tile"><div class="lbl">Renewals ≤ 60 days</div><div class="val">${expiring.length}</div><div class="delta ${expiring.length?'warn':''}">${expiring.length? esc(expiring[0].name.split(' — ')[0])+' · '+daysUntil(expiring[0].end)+'d' : 'none coming up'}</div></div>
+  </div>
+  <div class="dash-grid">
+    <div class="card"><h3>Pipeline by stage</h3><div class="chart-wrap" id="chart"></div></div>
+    <div class="card"><h3>${apToday.length ? "Today's schedule" : "No meetings today — next up"}</h3>
+      ${(apToday.length ? apToday : S.appts.filter(a=>daysUntil(a.day)>0).sort((a,b)=>a.day.localeCompare(b.day)||a.start-b.start).slice(0,4))
+        .map(a=>`<div class="list-row"><span class="when">${apToday.length?'':fmtD(a.day)+' · '}${hourLbl(a.start)}</span><span><b>${esc(a.title)}</b>${a.accountId?`<div class="sm muted">${esc(acctName(a.accountId))}</div>`:''}</span></div>`).join('') || '<div class="empty">Nothing booked</div>'}
+      <div style="margin-top:10px"><button class="btn small" onclick="go('schedule')">Open calendar →</button></div>
+    </div>
+    <div class="card"><h3>My tasks</h3>${taskListHtml(openTasks.slice(0,6))}</div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>Latest calls</h3>${callTable(S.calls.slice(0,4), false)}</div>`;
+
+  drawPipelineChart();
+  bindTaskChecks();
+}
+
+function hourLbl(h){ const hh = Math.floor(h), mm = Math.round((h-hh)*60); const ap = hh>=12?'PM':'AM';
+  return `${((hh+11)%12)+1}:${String(mm).padStart(2,'0')} ${ap}`; }
+
+function taskListHtml(list){
+  if(!list.length) return '<div class="empty">All clear ✓</div>';
+  return list.map(t => `
+    <div class="task-row ${t.done?'done':''}">
+      <input type="checkbox" data-task="${t.id}" ${t.done?'checked':''}>
+      <span class="t">${esc(t.title)}</span>
+      <span class="due ${(!t.done && daysUntil(t.due)<0)?'over':''}">${daysUntil(t.due)===0?'today':fmtD(t.due)}</span>
+    </div>`).join('');
+}
+function bindTaskChecks(){
+  main.querySelectorAll('input[data-task]').forEach(cb => cb.addEventListener('change', () => {
+    const t = S.tasks.find(x => x.id === cb.dataset.task); if(t){ t.done = cb.checked; toast(cb.checked?'Task completed':'Task reopened'); render(); }
+  }));
+}
+
+/* dashboard chart: single-series horizontal bars, direct-labeled, hover tooltip */
+function drawPipelineChart(){
+  const stages = ['New','Qualified','Quote Sent','Won'];
+  const data = stages.map(st => ({ st, n: S.leads.filter(l=>l.stage===st).length,
+    v: S.leads.filter(l=>l.stage===st).reduce((s,l)=>s+l.value,0) }));
+  const max = Math.max(...data.map(d=>d.v), 1);
+  const W = 460, rowH = 44, H = data.length*rowH + 8, labelW = 92, valW = 78;
+  const barMax = W - labelW - valW;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Open pipeline value by stage">`;
+  data.forEach((d,i) => {
+    const y = i*rowH + 10, bw = Math.max(4, Math.round(d.v/max*barMax));
+    svg += `<text x="${labelW-8}" y="${y+15}" text-anchor="end" font-size="12" fill="#52514e">${d.st}</text>`;
+    svg += `<rect data-bar="${i}" x="${labelW}" y="${y}" width="${bw}" height="22" rx="4" fill="${d.st==='Won' ? '#1baf7a' : '#2a78d6'}"></rect>`;
+    svg += `<text x="${labelW + bw + 8}" y="${y+15}" font-size="12" font-weight="600" fill="#0b0b0b">${money(d.v)}</text>`;
+  });
+  svg += `<line x1="${labelW}" y1="${H-2}" x2="${W-valW}" y2="${H-2}" stroke="#c3c2b7" stroke-width="1"></line></svg>
+  <div class="chart-tip" id="ctip"></div>
+  <div class="sm muted" style="margin-top:6px">Value of open leads by stage · Won shown for reference</div>`;
+  $('#chart').innerHTML = svg;
+  const tip = $('#ctip'), wrap = $('#chart');
+  wrap.querySelectorAll('rect[data-bar]').forEach(r => {
+    r.addEventListener('mousemove', e => {
+      const d = data[+r.dataset.bar];
+      tip.innerHTML = `<b>${d.st}</b> — ${d.n} lead${d.n===1?'':'s'} · ${money(d.v)}`;
+      const bb = wrap.getBoundingClientRect();
+      tip.style.left = (e.clientX - bb.left + 12)+'px'; tip.style.top = (e.clientY - bb.top - 10)+'px';
+      tip.style.display='block';
+    });
+    r.addEventListener('mouseleave', () => tip.style.display='none');
+  });
+}
+
+/* ================= calls ================= */
+function vCalls(){
+  main.innerHTML = `
+    <div class="page-head"><h1>Incoming Calls</h1><span class="sub">the front door — every call gets captured</span>
+      <div class="actions"><button class="btn primary" onclick="logCallModal()">+ Log call</button></div></div>
+    <div class="card">${callTable(S.calls, true)}</div>`;
+}
+
+function callTable(calls, withActions){
+  if(!calls.length) return '<div class="empty">No calls logged yet</div>';
+  const typePill = t => ({Sales:'blue', Support:'green', Billing:'amber'}[t] || 'gray');
+  return `<table class="grid"><thead><tr><th>When</th><th>Caller</th><th>Account</th><th>Type</th><th>Reason</th><th>Outcome</th><th>Follow-up</th>${withActions?'<th></th>':''}</tr></thead><tbody>
+    ${calls.map(c => `<tr>
+      <td class="sm muted" style="white-space:nowrap">${c.when===iso(today)?'Today':fmtD(c.when)} ${c.time}</td>
+      <td><b>${esc(c.contact)}</b></td>
+      <td>${c.accountId?`<a class="rec" onclick="go('accounts','${c.accountId}')">${esc(acctName(c.accountId))}</a>`:'<span class="muted">—</span>'}</td>
+      <td><span class="pill ${typePill(c.type)}">${c.type}</span></td>
+      <td>${esc(c.reason)}</td><td class="sm">${esc(c.outcome)}</td>
+      <td class="sm ${c.followUp && daysUntil(c.followUp)<=0 ? '' : 'muted'}">${c.followUp?fmtD(c.followUp):'—'}</td>
+      ${withActions?`<td><button class="btn small" onclick="convertCall('${c.id}')">→ Lead</button></td>`:''}
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function logCallModal(){
+  openModal(`
+    <div class="m-head">Log an incoming call <button class="x" onclick="closeModal()">✕</button></div>
+    <div class="m-body">
+      <div class="f-2"><div class="f-row"><label>Caller name</label><input id="lc-name" placeholder="Who called?"></div>
+      <div class="f-row"><label>Account</label><select id="lc-acct"><option value="">— none / new —</option>${S.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></div></div>
+      <div class="f-2"><div class="f-row"><label>Call type</label><select id="lc-type"><option>Sales</option><option>Support</option><option>Billing</option></select></div>
+      <div class="f-row"><label>Follow-up date</label><input id="lc-fu" type="date"></div></div>
+      <div class="f-row"><label>Reason for call</label><input id="lc-reason" placeholder="What did they need?"></div>
+      <div class="f-row"><label>Outcome</label><input id="lc-out" placeholder="How did it end?"></div>
+    </div>
+    <div class="m-foot"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveCall()">Save call</button></div>`);
+}
+function saveCall(){
+  const name = $('#lc-name').value.trim(); if(!name){ toast('Caller name is required'); return; }
+  const t = new Date();
+  S.calls.unshift({id:id('c'), when:iso(today), time:`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`,
+    contact:name, accountId:$('#lc-acct').value||null, type:$('#lc-type').value,
+    reason:$('#lc-reason').value.trim()||'—', outcome:$('#lc-out').value.trim()||'Logged', followUp:$('#lc-fu').value||null});
+  closeModal(); toast('Call logged ✓'); go('calls');
+}
+function convertCall(cid){
+  const c = S.calls.find(x=>x.id===cid); if(!c) return;
+  if(S.leads.some(l => l.name===c.contact && !['Won','Lost'].includes(l.stage))){ toast('Open lead already exists for this caller'); return; }
+  S.leads.unshift({id:id('l'), name:c.contact, company: c.accountId?acctName(c.accountId):'(new company)',
+    accountId:c.accountId, source:null, stage:'New', value:10000, owner:'Ben L.', created:iso(today)});
+  toast('Lead created from call ✓'); go('leads');
+}
+
+/* ================= leads / pipeline ================= */
+function vLeads(){
+  const open = S.leads.filter(l=>!['Won','Lost'].includes(l.stage));
+  main.innerHTML = `
+    <div class="page-head"><h1>Pipeline</h1><span class="sub">${open.length} open · ${money(open.reduce((s,l)=>s+l.value,0))}</span>
+      <div class="actions"><button class="btn primary" onclick="leadModal()">+ New lead</button></div></div>
+    <div class="board">${STAGES.map(st => {
+      const list = S.leads.filter(l=>l.stage===st);
+      return `<div class="lane"><h4><span>${st}</span><span>${list.length ? money(list.reduce((s,l)=>s+l.value,0)) : '—'}</span></h4>
+        ${list.map(l => `<div class="lead-card">
+          <div class="nm">${esc(l.name)}</div><div class="co">${esc(l.company)}</div>
+          <div class="meta"><b>${money(l.value)}</b>
+            <select onchange="moveLead('${l.id}', this.value)">${STAGES.map(s=>`<option ${s===l.stage?'selected':''}>${s}</option>`).join('')}</select></div>
+          <div class="sm muted" style="margin-top:5px">${l.source?('via '+esc(campName(l.source))):'no campaign'} · ${esc(l.owner)}</div>
+        </div>`).join('') || '<div class="empty sm">empty</div>'}</div>`;
+    }).join('')}</div>`;
+}
+function moveLead(lid, stage){
+  const l = S.leads.find(x=>x.id===lid); if(!l) return;
+  l.stage = stage; toast(`Moved to ${stage}`);
+  if(stage==='Quote Sent') toast('Moved to Quote Sent — build the quote in Pricing');
+  render();
+}
+function leadModal(){
+  openModal(`
+    <div class="m-head">New lead <button class="x" onclick="closeModal()">✕</button></div>
+    <div class="m-body">
+      <div class="f-2"><div class="f-row"><label>Contact name</label><input id="nl-name"></div>
+      <div class="f-row"><label>Company</label><input id="nl-co"></div></div>
+      <div class="f-2"><div class="f-row"><label>Est. value ($)</label><input id="nl-val" type="number" value="15000"></div>
+      <div class="f-row"><label>Source campaign</label><select id="nl-src"><option value="">— none —</option>${S.campaigns.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select></div></div>
+    </div>
+    <div class="m-foot"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveLead()">Create</button></div>`);
+}
+function saveLead(){
+  const nm = $('#nl-name').value.trim(); if(!nm){ toast('Name required'); return; }
+  S.leads.unshift({id:id('l'), name:nm, company:$('#nl-co').value.trim()||'—', accountId:null,
+    source:$('#nl-src').value||null, stage:'New', value:+$('#nl-val').value||0, owner:'Ben L.', created:iso(today)});
+  closeModal(); toast('Lead created ✓'); render();
+}
+</script>
+<script>
+/* ================= accounts ================= */
+function vAccounts(){
+  if(viewArg){ return vAccountDetail(viewArg); }
+  main.innerHTML = `
+    <div class="page-head"><h1>Accounts</h1><span class="sub">${S.accounts.length} companies</span></div>
+    <div class="card"><table class="grid"><thead><tr><th>Company</th><th>Industry</th><th>City</th><th class="num">Employees</th><th>Owner</th><th class="num">Open value</th><th>Contracts</th></tr></thead><tbody>
+    ${S.accounts.map(a => {
+      const open = S.leads.filter(l=>l.accountId===a.id && !['Won','Lost'].includes(l.stage)).reduce((s,l)=>s+l.value,0);
+      const kk = S.contracts.filter(k=>k.accountId===a.id && k.status==='Active').length;
+      return `<tr class="click" onclick="go('accounts','${a.id}')">
+        <td><b>${esc(a.name)}</b></td><td>${esc(a.industry)}</td><td>${esc(a.city)}</td>
+        <td class="num">${a.employees}</td><td>${esc(a.owner)}</td>
+        <td class="num">${open?money(open):'<span class="muted">—</span>'}</td>
+        <td>${kk?`<span class="pill green">${kk} active</span>`:'<span class="muted sm">none</span>'}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+function vAccountDetail(aid){
+  const a = acct(aid); if(!a){ viewArg=null; return vAccounts(); }
+  const contacts = S.contacts.filter(p=>p.accountId===aid);
+  const calls = S.calls.filter(c=>c.accountId===aid);
+  const quotes = S.quotes.filter(q=>q.accountId===aid);
+  const contracts = S.contracts.filter(k=>k.accountId===aid);
+  const leads = S.leads.filter(l=>l.accountId===aid);
+  const appts = S.appts.filter(x=>x.accountId===aid && daysUntil(x.day)>=0);
+  const events = [
+    ...calls.map(c=>({d:c.when, dot:'#2a78d6', txt:`Call — ${c.reason}`, sub:c.outcome})),
+    ...quotes.map(q=>({d:q.created, dot:'#eda100', txt:`Quote ${q.id} (${q.status})`, sub:money(quoteTotal(q))})),
+    ...contracts.map(k=>({d:k.start, dot:'#1baf7a', txt:`Contract ${k.id} — ${k.status}`, sub:money(k.value)})),
+    ...leads.map(l=>({d:l.created, dot:'#4a3aa7', txt:`Lead created (${l.stage})`, sub:money(l.value)}))
+  ].sort((x,y)=>y.d.localeCompare(x.d));
+  main.innerHTML = `
+    <div class="page-head"><button class="btn small" onclick="go('accounts')">← All accounts</button><h1>${esc(a.name)}</h1>
+      <span class="pill gray">${esc(a.industry)}</span>
+      <div class="actions"><button class="btn" onclick="bookModal('${aid}')">Book meeting</button><button class="btn primary" onclick="newQuoteModal('${aid}')">New quote</button></div></div>
+    <div class="detail-grid">
+      <div>
+        <div class="card"><h3>Details</h3><div class="kv">
+          <span class="k">City</span><span>${esc(a.city)}, CO</span>
+          <span class="k">Employees</span><span>${a.employees}</span>
+          <span class="k">Phone</span><span>${esc(a.phone)}</span>
+          <span class="k">Owner</span><span>${esc(a.owner)}</span>
+          <span class="k">Notes</span><span>${esc(a.notes)}</span></div></div>
+        <div class="card" style="margin-top:14px"><h3>Contacts</h3>
+          ${contacts.map(p=>`<div class="list-row"><span><b>${esc(p.name)}</b> <span class="muted sm">· ${esc(p.title)}</span><div class="sm muted">${esc(p.phone)} · ${esc(p.email)}</div></span></div>`).join('')||'<div class="empty">No contacts</div>'}</div>
+        <div class="card" style="margin-top:14px"><h3>Upcoming</h3>
+          ${appts.map(x=>`<div class="list-row"><span class="when">${fmtD(x.day)}</span><span>${esc(x.title)} <span class="muted sm">${hourLbl(x.start)}</span></span></div>`).join('')||'<div class="empty">Nothing booked</div>'}</div>
+      </div>
+      <div>
+        <div class="card"><h3>Commercial summary</h3><table class="grid"><thead><tr><th>Record</th><th>Status</th><th class="num">Value</th><th>Date</th></tr></thead><tbody>
+          ${quotes.map(q=>`<tr><td>Quote <b>${q.id}</b></td><td><span class="pill ${({Draft:'gray',Sent:'blue',Accepted:'green',Expired:'red'})[q.status]||'gray'}">${q.status}</span></td><td class="num">${money(quoteTotal(q))}</td><td class="sm muted">${fmtD(q.created)}</td></tr>`).join('')}
+          ${contracts.map(k=>`<tr><td>Contract <b>${k.id}</b></td><td>${contractPill(k)}</td><td class="num">${money(k.value)}</td><td class="sm muted">ends ${fmtDY(k.end)}</td></tr>`).join('')}
+          ${(!quotes.length && !contracts.length)?'<tr><td colspan="4" class="empty">No quotes or contracts yet</td></tr>':''}
+        </tbody></table></div>
+        <div class="card timeline" style="margin-top:14px"><h3>Activity timeline</h3>
+          ${events.map(e=>`<div class="ev"><span class="dot" style="background:${e.dot}"></span><span style="flex:1">${esc(e.txt)}<div class="sm muted">${esc(e.sub)}</div></span><span class="sm muted">${fmtD(e.d)}</span></div>`).join('')||'<div class="empty">No activity yet</div>'}</div>
+      </div>
+    </div>`;
+}
+
+/* ================= marketing ================= */
+function vMarketing(){
+  main.innerHTML = `
+    <div class="page-head"><h1>Marketing</h1><span class="sub">campaigns and where leads come from</span>
+      <div class="actions"><button class="btn primary" onclick="campModal()">+ New campaign</button></div></div>
+    <div class="camp-grid">${S.campaigns.map(m => {
+      const leads = S.leads.filter(l=>l.source===m.id);
+      const won = leads.filter(l=>l.stage==='Won');
+      const pipe = leads.filter(l=>!['Won','Lost'].includes(l.stage)).reduce((s,l)=>s+l.value,0);
+      const cpl = leads.length ? m.budget/leads.length : 0;
+      return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <b>${esc(m.name)}</b><span class="pill ${m.status==='Active'?'green':'gray'}">${m.status}</span></div>
+        <div class="sm muted" style="margin-bottom:10px">${esc(m.channel)} · ${fmtD(m.start)} – ${fmtD(m.end)} · budget ${money(m.budget)}</div>
+        <table class="grid"><tbody>
+          <tr><td>Leads generated</td><td class="num"><b>${leads.length}</b></td></tr>
+          <tr><td>Open pipeline</td><td class="num">${money(pipe)}</td></tr>
+          <tr><td>Closed won</td><td class="num">${won.length ? money(won.reduce((s,l)=>s+l.value,0)) : '—'}</td></tr>
+          <tr><td>Cost per lead</td><td class="num">${leads.length?money(cpl):'—'}</td></tr>
+        </tbody></table></div>`;
+    }).join('')}</div>`;
+}
+function campModal(){
+  openModal(`
+    <div class="m-head">New campaign <button class="x" onclick="closeModal()">✕</button></div>
+    <div class="m-body">
+      <div class="f-row"><label>Name</label><input id="nc-name" placeholder="e.g. Fall Trade Show"></div>
+      <div class="f-2"><div class="f-row"><label>Channel</label><select id="nc-ch"><option>Email</option><option>Event</option><option>Referral</option><option>Webinar</option><option>Ads</option></select></div>
+      <div class="f-row"><label>Budget ($)</label><input id="nc-b" type="number" value="2000"></div></div>
+    </div>
+    <div class="m-foot"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveCamp()">Create</button></div>`);
+}
+function saveCamp(){
+  const nm=$('#nc-name').value.trim(); if(!nm){ toast('Name required'); return; }
+  S.campaigns.unshift({id:id('m'), name:nm, channel:$('#nc-ch').value, budget:+$('#nc-b').value||0,
+    status:'Active', start:iso(today), end:iso(addD(today,60))});
+  closeModal(); toast('Campaign created ✓'); render();
+}
+
+/* ================= pricing & quotes ================= */
+function vPricing(){
+  main.innerHTML = `
+    <div class="page-head"><h1>Pricing &amp; Quotes</h1><span class="sub">price book → quote → contract</span>
+      <div class="actions"><button class="btn primary" onclick="newQuoteModal()">+ New quote</button></div></div>
+    <div class="two-col">
+      <div class="card"><h3>Price book</h3><table class="grid"><thead><tr><th>SKU</th><th>Item</th><th class="num">Price</th></tr></thead><tbody>
+        ${S.priceBook.map(p=>`<tr><td class="sm muted">${p.sku}</td><td>${esc(p.name)}</td><td class="num">${money(p.price)}<span class="muted sm"> ${p.unit}</span></td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="card"><h3>Quotes</h3><table class="grid"><thead><tr><th>Quote</th><th>Account</th><th class="num">Total</th><th>Status</th><th></th></tr></thead><tbody>
+        ${S.quotes.map(q=>`<tr>
+          <td><b>${q.id}</b><div class="sm muted">${fmtD(q.created)} · ${q.discountPct||0}% disc.</div></td>
+          <td><a class="rec" onclick="go('accounts','${q.accountId}')">${esc(acctName(q.accountId))}</a></td>
+          <td class="num"><b>${money(quoteTotal(q))}</b></td>
+          <td><span class="pill ${({Draft:'gray',Sent:'blue',Accepted:'green',Expired:'red'})[q.status]||'gray'}">${q.status}</span></td>
+          <td style="white-space:nowrap">${q.status==='Draft'?`<button class="btn small" onclick="setQuote('${q.id}','Sent')">Send</button>`:''}
+            ${q.status==='Sent'?`<button class="btn small" onclick="setQuote('${q.id}','Accepted')">Mark accepted</button>`:''}
+            ${q.status==='Accepted' && !S.contracts.some(k=>k.quoteId===q.id)?`<button class="btn small primary" onclick="quoteToContract('${q.id}')">→ Contract</button>`:''}</td>
+        </tr>`).join('')}
+      </tbody></table></div>
+    </div>`;
+}
+function setQuote(qid, st){ const q=S.quotes.find(x=>x.id===qid); if(q){ q.status=st; toast(`Quote ${qid} → ${st}`); render(); } }
+function quoteToContract(qid){
+  const q=S.quotes.find(x=>x.id===qid); if(!q) return;
+  const num = 210 + S.contracts.length;
+  S.contracts.unshift({id:'CT-'+num, accountId:q.accountId, quoteId:q.id,
+    name:`${acctName(q.accountId).split(' ')[0]} — from ${q.id}`, value:Math.round(quoteTotal(q)),
+    status:'Draft', start:iso(addD(today,14)), end:iso(addD(today,379))});
+  toast('Contract drafted from quote ✓'); go('contracts');
+}
+
+let qDraft = null;
+function newQuoteModal(aid){
+  qDraft = {accountId: aid || S.accounts[0].id, items:[{p:'pr2', qty:1}], discountPct:0};
+  renderQuoteModal();
+}
+function renderQuoteModal(){
+  openModal(`
+    <div class="m-head">New quote <button class="x" onclick="closeModal()">✕</button></div>
+    <div class="m-body">
+      <div class="f-row"><label>Account</label><select id="nq-acct" onchange="qDraft.accountId=this.value">${S.accounts.map(a=>`<option value="${a.id}" ${a.id===qDraft.accountId?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
+      <div class="f-row"><label>Line items</label>
+        ${qDraft.items.map((it,i)=>`<div class="qline">
+          <select onchange="qDraft.items[${i}].p=this.value;renderQuoteModal()">${S.priceBook.map(p=>`<option value="${p.id}" ${p.id===it.p?'selected':''}>${esc(p.name)} — ${money(p.price)}</option>`).join('')}</select>
+          <input type="number" min="1" value="${it.qty}" oninput="qDraft.items[${i}].qty=Math.max(1,+this.value||1);updateQuoteTotals()">
+          <span class="num sm" style="align-self:center" id="ql-amt-${i}">${money((S.priceBook.find(x=>x.id===it.p)||{price:0}).price*it.qty)}</span>
+          <button class="x" onclick="qDraft.items.splice(${i},1);renderQuoteModal()" ${qDraft.items.length<2?'disabled style="opacity:.3"':''}>✕</button>
+        </div>`).join('')}
+        <button class="btn small" onclick="qDraft.items.push({p:'pr1',qty:1});renderQuoteModal()">+ Add line</button></div>
+      <div class="f-row" style="max-width:180px"><label>Discount %</label><input type="number" min="0" max="40" value="${qDraft.discountPct}" oninput="qDraft.discountPct=Math.min(40,Math.max(0,+this.value||0));updateQuoteTotals()"></div>
+      <div id="q-warn"></div>
+      <div class="qtotal" id="q-total"></div>
+    </div>
+    <div class="m-foot"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveQuote()">Save draft</button></div>`);
+  updateQuoteTotals();
+}
+function updateQuoteTotals(){
+  const sub = qDraft.items.reduce((s,it)=>{const p=S.priceBook.find(x=>x.id===it.p); return s+(p?p.price*it.qty:0);},0);
+  const total = sub * (1 - qDraft.discountPct/100);
+  qDraft.items.forEach((it,i)=>{ const el=document.getElementById('ql-amt-'+i);
+    if(el) el.textContent = money((S.priceBook.find(x=>x.id===it.p)||{price:0}).price*it.qty); });
+  $('#q-warn').innerHTML = qDraft.discountPct>15 ? '<div class="warn-line">⚠ Discounts above 15% need manager approval (flagged on save)</div>' : '';
+  $('#q-total').innerHTML = `<span class="muted">Subtotal ${money(sub)}</span><span class="muted">− ${qDraft.discountPct}%</span><span class="big">${money(total)}</span>`;
+}
+function saveQuote(){
+  const num = 1043 + (S.quotes.length - 3);
+  S.quotes.unshift({id:'Q-'+num, accountId:qDraft.accountId, items:qDraft.items, discountPct:qDraft.discountPct, status:'Draft', created:iso(today)});
+  closeModal(); toast(`Quote Q-${num} saved as draft ✓${qDraft.discountPct>15?' (approval flagged)':''}`); go('pricing');
+}
+
+/* ================= contracts ================= */
+function contractPill(k){
+  if(k.status==='Active'){
+    const d = daysUntil(k.end);
+    if(d>=0 && d<=60) return `<span class="pill amber">⚠ Renews in ${d}d</span>`;
+    return '<span class="pill green">Active</span>';
+  }
+  return `<span class="pill ${({Draft:'gray',Sent:'blue',Signed:'green',Expired:'red'})[k.status]||'gray'}">${k.status}</span>`;
+}
+function vContracts(){
+  const expiring = S.contracts.filter(k=>k.status==='Active' && daysUntil(k.end)<=60 && daysUntil(k.end)>=0);
+  main.innerHTML = `
+    <div class="page-head"><h1>Contracts</h1><span class="sub">draft → sent → signed → active</span></div>
+    ${expiring.length?`<div class="warn-line">⚠ ${expiring.length} active contract${expiring.length===1?'':'s'} renew${expiring.length===1?'s':''} within 60 days — ${expiring.map(k=>esc(k.name.split(' — ')[0])).join(', ')}</div>`:''}
+    <div class="card"><table class="grid"><thead><tr><th>Contract</th><th>Account</th><th class="num">Value / yr</th><th>Term</th><th>Status</th><th></th></tr></thead><tbody>
+    ${S.contracts.map(k=>`<tr>
+      <td><b>${k.id}</b><div class="sm muted">${esc(k.name)}${k.quoteId?' · from '+k.quoteId:''}</div></td>
+      <td><a class="rec" onclick="go('accounts','${k.accountId}')">${esc(acctName(k.accountId))}</a></td>
+      <td class="num">${money(k.value)}</td>
+      <td class="sm">${fmtD(k.start)} → ${fmtDY(k.end)}</td>
+      <td>${contractPill(k)}</td>
+      <td style="white-space:nowrap">
+        ${k.status==='Draft'?`<button class="btn small" onclick="setContract('${k.id}','Sent')">Send</button>`:''}
+        ${k.status==='Sent'?`<button class="btn small" onclick="setContract('${k.id}','Signed')">Mark signed</button>`:''}
+        ${k.status==='Signed'?`<button class="btn small primary" onclick="setContract('${k.id}','Active')">Activate</button>`:''}
+        ${(k.status==='Active' && daysUntil(k.end)<=60)?`<button class="btn small" onclick="renewContract('${k.id}')">Renew +1yr</button>`:''}
+      </td></tr>`).join('')}</tbody></table></div>`;
+}
+function setContract(kid, st){ const k=S.contracts.find(x=>x.id===kid); if(k){ k.status=st; toast(`${kid} → ${st}`); render(); } }
+function renewContract(kid){
+  const k=S.contracts.find(x=>x.id===kid); if(!k) return;
+  k.end = iso(addD(new Date(k.end+'T00:00:00'), 365));
+  toast(`${kid} renewed through ${fmtDY(k.end)} ✓`); render();
+}
+
+/* ================= schedule ================= */
+let weekOffset = 0;
+const HOURS = [8,9,10,11,12,13,14,15,16];
+function vSchedule(){
+  const mon = addD(monOf(today), weekOffset*7);
+  const days = [0,1,2,3,4].map(i=>addD(mon,i));
+  main.innerHTML = `
+    <div class="page-head"><h1>Schedule</h1>
+      <span class="sub">${fmtD(iso(days[0]))} – ${fmtDY(iso(days[4]))}</span>
+      <div class="actions">
+        <button class="btn" onclick="weekOffset--;render()">←</button>
+        <button class="btn" onclick="weekOffset=0;render()">This week</button>
+        <button class="btn" onclick="weekOffset++;render()">→</button>
+        <button class="btn primary" onclick="bookModal()">+ Book</button></div></div>
+    <div class="week">
+      <div class="head" style="border-left:none"></div>
+      ${days.map(d=>`<div class="head ${iso(d)===iso(today)?'today':''}">${d.toLocaleDateString('en-US',{weekday:'short'})}<div class="d">${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div></div>`).join('')}
+      <div>${HOURS.map(h=>`<div class="hour-lbl">${hourLbl(h)}</div>`).join('')}</div>
+      ${days.map(d=>{
+        const dIso = iso(d);
+        const appts = S.appts.filter(a=>a.day===dIso);
+        return `<div class="day-col">
+          ${HOURS.map(h=>`<div class="slot" onclick="bookModal(null,'${dIso}',${h})" title="Book ${hourLbl(h)}"></div>`).join('')}
+          ${appts.map(a=>`<div class="appt ${a.type}" style="top:${(a.start-8)*48+1}px;height:${a.dur*48-4}px" onclick="event.stopPropagation();apptInfo('${a.id}')">
+            <div class="t">${esc(a.title)}</div><div>${hourLbl(a.start)} · ${esc(a.owner)}</div></div>`).join('')}
+        </div>`;}).join('')}
+    </div>
+    <div class="sm muted" style="margin-top:10px">Click any empty slot to book it · <span class="pill blue">meeting</span> <span class="pill green">site visit</span> <span class="pill gray">internal</span></div>`;
+}
+function apptInfo(apid){
+  const a = S.appts.find(x=>x.id===apid); if(!a) return;
+  openModal(`
+    <div class="m-head">${esc(a.title)} <button class="x" onclick="closeModal()">✕</button></div>
+    <div class="m-body"><div class="kv">
+      <span class="k">When</span><span>${fmtDY(a.day)}, ${hourLbl(a.start)} – ${hourLbl(a.start+a.dur)}</span>
+      <span class="k">Type</span><span>${a.type}</span>
+      <span class="k">Owner</span><span>${esc(a.owner)}</span>
+      ${a.accountId?`<span class="k">Account</span><span><a class="rec" onclick="closeModal();go('accounts','${a.accountId}')">${esc(acctName(a.accountId))}</a></span>`:''}
+    </div></div>
+    <div class="m-foot"><button class="btn" onclick="cancelAppt('${a.id}')">Cancel booking</button><button class="btn primary" onclick="closeModal()">Close</button></div>`);
+}
+function cancelAppt(apid){ S.appts = S.appts.filter(x=>x.id!==apid); closeModal(); toast('Booking cancelled'); render(); }
+
+function bookModal(aid, day, hour){
+  openModal(`
+    <div class="m-head">Book a meeting <button class="x" onclick="closeModal()">✕</button></div>
+    <div class="m-body">
+      <div class="f-row"><label>Title</label><input id="bk-title" placeholder="e.g. Demo — Acme Co"></div>
+      <div class="f-2">
+        <div class="f-row"><label>Date</label><input id="bk-day" type="date" value="${day || iso(bday(1))}"></div>
+        <div class="f-row"><label>Start</label><select id="bk-start">${HOURS.map(h=>`<option value="${h}" ${h===(hour??10)?'selected':''}>${hourLbl(h)}</option>`).join('')}</select></div></div>
+      <div class="f-2">
+        <div class="f-row"><label>Duration</label><select id="bk-dur"><option value="1">1 hour</option><option value="2">2 hours</option></select></div>
+        <div class="f-row"><label>Type</label><select id="bk-type"><option value="demo">Meeting / demo</option><option value="site">Site visit</option><option value="internal">Internal</option></select></div></div>
+      <div class="f-row"><label>Account</label><select id="bk-acct"><option value="">— none —</option>${S.accounts.map(a=>`<option value="${a.id}" ${a.id===aid?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
+      <div id="bk-warn"></div>
+    </div>
+    <div class="m-foot"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveBooking()">Book it</button></div>`);
+}
+function saveBooking(){
+  const title = $('#bk-title').value.trim() || 'Meeting';
+  const day = $('#bk-day').value, start = +$('#bk-start').value, dur = +$('#bk-dur').value;
+  if(!day){ toast('Pick a date'); return; }
+  const clash = S.appts.find(a => a.day===day && start < a.start+a.dur && a.start < start+dur);
+  if(clash && !saveBooking._force){
+    $('#bk-warn').innerHTML = `<div class="warn-line">⚠ Conflicts with “${esc(clash.title)}” (${hourLbl(clash.start)}). Click <b>Book it</b> again to double-book anyway.</div>`;
+    saveBooking._force = true; return;
+  }
+  saveBooking._force = false;
+  S.appts.push({id:id('ap'), title, accountId:$('#bk-acct').value||null, day, start, dur, type:$('#bk-type').value, owner:'Ben L.'});
+  const d = new Date(day+'T00:00:00');
+  weekOffset = Math.round((monOf(d) - monOf(today)) / (7*DAY));
+  closeModal(); toast('Booked ✓'); go('schedule');
+}
+
+/* ================= boot ================= */
+render();
+</script>
+</body>
+</html>
