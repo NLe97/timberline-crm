@@ -19,6 +19,14 @@ A single-file, zero-dependency mini CRM proof of concept aimed at mid-market com
 | **Contracts** | Draft → Sent → Signed → Active pipeline, renewal alerts, one-click renew |
 | **Schedule** | Week calendar; book from any record; double-booking conflict warnings |
 
+### Pipeline
+
+![Pipeline board](screenshots/pipeline.png)
+
+### Schedule
+
+![Week calendar](screenshots/schedule.png)
+
 ## Architecture notes
 
 Everything lives in `index.html`, organized top to bottom in four layers.
